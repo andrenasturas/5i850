@@ -12,7 +12,7 @@ Le projet du cours d'AS consiste à choisir et valider un article scientifique i
 
 ### Article choisi
 
-**[Lifelong learning with dynamically expandable networks.pdf](Lifelong Learning with Dynamically Expandable Networks)**, d'auteurs anonymes (revue en double aveugle par OpenReview).
+**[Lifelong Learning with Dynamically Expandable Networks](Lifelong%20learning%20with%20dynamically%20expandable%20networks.pdf)**, d'auteurs anonymes (revue en double aveugle par OpenReview).
 
 ### Livrables
 
