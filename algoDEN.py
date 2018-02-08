@@ -26,10 +26,10 @@ class DEN(nn.Module):
         return self.trainL1(x, y)
 
     def trainNext(self, x, y):
-        l = selectiveRetraining(self, x, y)
+        l = selectiveRetraining(x, y)
         if l > self.tau:
-            dynamicExpansion(self, x, y)
-        split(self, x, y)
+            dynamicExpansion(x, y)
+        split(x, y)
 
 
     def forward(self, x):
