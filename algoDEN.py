@@ -7,11 +7,7 @@ import torch.optim as optim
 
 class DEN(nn.Module):
 
-    def __init__(self, model, tau, mu, gamma, k, sigma, optim = optim.SGD, lr=1e-3, loss = nn.MSELoss()) :
-
-        '''
-        paramList de la forme nbCouche*(weightTensor,biasTensor)
-        '''
+    def __init__(self, model, tau = 1, mu = 0.5, gamma = 1, k = 5, sigma = 0.5, lamb = 0.5, optim = optim.SGD, lr=1e-3, loss = nn.MSELoss()) :
 
         super().__init__()
 
@@ -21,37 +17,37 @@ class DEN(nn.Module):
         self.gamma = gamma
         self.k = k
         self.sigma = sigma
-        self.init = False
+        self.lamb = lamb
         self.optim = optim
         self.loss = loss
         self.lr = lr
 
+    def trainFirst(self, x, y):
+        return self.trainL1(x, y)
+
     def trainNext(self, x, y):
-        if not self.init :
-            self.trainL1(x, y)
-            self.init = True
-        else :
-            l = selectiveRetraining(self, x, y)
-            if l > self.tau:
-                dynamicExpansion(self, x, y)
-            split(self, x, y)
+        l = selectiveRetraining(self, x, y)
+        if l > self.tau:
+            dynamicExpansion(self, x, y)
+        split(self, x, y)
 
 
     def forward(self, x):
         return self.model.forward(x)
 
-    def trainL1(self, x, y, n = 100):
+    def trainL1(self, x, y):
         op = self.optim(self.model.parameters(), self.lr)
         l1_crit = nn.L1Loss(size_average=False)
 
-        for i in range(n):
+        loss = self.loss(self(x), y)
 
-            loss = self.loss(self(x), y)
-
-            s = 0
-            for p in self.model.parameters() :
+        s = 0
+        for n, p in self.model.named_parameters() :
+            if n == "weight" :
                 s += l1_crit(p, torch.zeros_like(p))
-            loss += self.mu * s
-            loss.backward()
-            op.step()
+        loss += self.mu * s
+        loss.backward()
+        op.step()
+
+        return loss
 
