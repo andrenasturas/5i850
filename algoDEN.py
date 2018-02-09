@@ -92,7 +92,7 @@ class DEN(nn.Module):
         cpt = 0
         for m in den.model.children():
             if [p for p in m.parameters()] != []:
-                m.register_backward_hook(lambda module, grad_input, grad_output : grad_input * mask[cpt])
+                handle.append(m.register_backward_hook(lambda module, grad_input, grad_output : grad_input * mask[cpt]))
                 cpt += 1
 
         lossHisto2 = []
@@ -110,5 +110,7 @@ class DEN(nn.Module):
 
             if i%(self.nbEpoch/100) == 0:
                 lossHisto2.append(torch.eq(ypred.data, y.data).float().mean())
+
+        [h.remove()for h in handle]
 
         return lossHisto, lossHisto2
