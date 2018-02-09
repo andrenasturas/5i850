@@ -4,6 +4,7 @@ from torch.nn.parameter import Parameter
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import itertools
 
 class DEN(nn.Module):
 
@@ -40,11 +41,14 @@ class DEN(nn.Module):
         op = self.optim(self.model.parameters(), self.lr)
         l1_crit = nn.L1Loss(size_average=False)
 
-        for i,(x,y) in enumerate(itertools.cycle(mnist_variation_train_set_loader)):
+        for i,(x,y) in enumerate(itertools.cycle(loader)):
             if i > self.nbEpoch :
                 break
-            if i%(ite/10) == 0:
+            if i%(self.nbEpoch/10) == 0:
                 print("Iteration", i)
+
+            x = Variable(x.float())
+            y = Variable(y.float())
 
             loss = self.loss(self(x), y)
 
@@ -57,7 +61,7 @@ class DEN(nn.Module):
             op.step()
             
             if i%(self.nbEpoch/100) == 0:
-                lossHisto.append(torch.eq(ypred.data, y.data).float().mean())
+                lossHisto.append(loss.data.mean())
 
         return lossHisto
 
@@ -65,23 +69,26 @@ class DEN(nn.Module):
 
         lossHisto = []
 
-        param = [p for n, p in self.model.named_parameters() if n in "weight"]
+        param = [p for n, p in self.model.named_parameters() if "weight" in n]
         op = self.optim(param[-1:], self.lr)
         l1_crit = nn.L1Loss(size_average=False)
 
-        for i,(x,y) in enumerate(itertools.cycle(mnist_variation_train_set_loader)):
+        for i,(x,y) in enumerate(itertools.cycle(loader)):
             if i > self.nbEpoch :
                 break
-            if i%(ite/10) == 0:
+            if i%(self.nbEpoch/10) == 0:
                 print("Iteration", i)
 
+            x = Variable(x.float())
+            y = Variable(y.float())
+
             loss = self.loss(self(x), y)
-            loss += self.mu * l1_crit(param[-1], torch.zeros_like(p))
+            loss += self.mu * l1_crit(param[-1], torch.zeros_like(param[-1]))
             loss.backward()
             op.step()
 
             if i%(self.nbEpoch/100) == 0:
-                lossHisto.append(torch.eq(ypred.data, y.data).float().mean())
+                lossHisto.append(loss.data.mean())
 
         mask = list(range(len(param)))
         mask[-1] = (param[-1].data > 0).float()
@@ -90,26 +97,35 @@ class DEN(nn.Module):
 
         handle = []
         cpt = 0
-        for m in den.model.children():
+        for m in self.model.children():
             if [p for p in m.parameters()] != []:
-                handle.append(m.register_backward_hook(lambda module, grad_input, grad_output : grad_input * mask[cpt]))
+                def hook(mult):
+                    mult = Variable(mult.clone(), requires_grad = False)
+                    def h(module, grad_input, grad_output):
+                        #print(grad_input)
+                        return grad_input, grad_input[1] * mult
+                    return h
+                handle.append(m.register_backward_hook(hook(mask[cpt])))
                 cpt += 1
 
         lossHisto2 = []
-        op = self.optim(param[-1:], self.lr, weight_decay = self.mu)
+        op = self.optim(self.model.parameters(), self.lr, weight_decay = self.mu)
 
-        for i,(x,y) in enumerate(itertools.cycle(mnist_variation_train_set_loader)):
+        for i,(x,y) in enumerate(itertools.cycle(loader)):
             if i > self.nbEpoch :
                 break
-            if i%(ite/10) == 0:
+            if i%(self.nbEpoch/10) == 0:
                 print("Iteration", i)
+
+            x = Variable(x.float())
+            y = Variable(y.float())
 
             loss = self.loss(self(x), y)
             loss.backward()
             op.step()
 
             if i%(self.nbEpoch/100) == 0:
-                lossHisto2.append(torch.eq(ypred.data, y.data).float().mean())
+                lossHisto2.append(loss.data.mean())
 
         [h.remove()for h in handle]
 
